@@ -1,7 +1,7 @@
 import os
 import tensorflow as tf
 
-def sanitize():
+def main():
     num_skipped = 0
     for folder_name in ("Cat", "Dog"):
         folder_path = os.path.join("PetImages", folder_name)
@@ -19,4 +19,7 @@ def sanitize():
                 os.remove(fpath)
 
     print("Deleted %d images" % num_skipped)
+
+if __name__ == "__main__":
+    main()
 

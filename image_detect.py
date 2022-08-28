@@ -1,7 +1,10 @@
+import os
+
 import tensorflow as tf
 from tensorflow import keras
 from keras import layers
-from sanitizer import sanitize
+from matplotlib import pyplot as plt
+
 
 # Function that makes a keras model
 # We start the model with the data_augmentation preprocessor, followed by a Rescaling layer.
@@ -60,16 +63,7 @@ def make_model(input_shape, num_classes, data_augmentation):
 
 
 def main():
-
-    # get gpu device
-    gpus = tf.config.experimental.list_physical_devices('GPU')
-    if gpus:
-        try:
-            tf.config.experimental.set_visible_devices(gpus[0], 'GPU')
-            tf.config.experimental.set_memory_growth(gpus[0], True)
-        except RuntimeError as e:
-            print(e)
-
+    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
     # generate dataset
     image_size = (180, 180)
     batch_size = 32
@@ -94,9 +88,6 @@ def main():
     print("Number of training images before augmentation: " + str(len(train_ds)))
     print("Number of validation images before augmentation: " + str(len(val_ds)))
 
-    # sanitize dataset
-    sanitize()
-
     # data augmentation
     data_augmentation = keras.Sequential(
         [
@@ -111,7 +102,8 @@ def main():
 
     model = make_model(input_shape=image_size + (3,), num_classes=2, data_augmentation=data_augmentation)
     keras.utils.plot_model(model, show_shapes=True)
-
+    # get model summary
+    model.summary()
     # run training
     epochs = 5
 
@@ -121,13 +113,33 @@ def main():
     model.compile(
         optimizer=keras.optimizers.Adam(1e-3),
         loss="binary_crossentropy",
-        metrics=["accuracy"],
+        metrics=["acc"],
     )
-    model.fit(
-        train_ds, epochs=epochs, callbacks=callbacks, validation_data=val_ds,
+    history = model.fit(
+        train_ds, validation_split=0.1, epochs=epochs, callbacks=callbacks, validation_data=val_ds,
     )
 
-    #save model in saved_model format
+    # plot training history-accuracy
+    plt.plot(history.history['acc'])
+    plt.plot(history.history['val_acc'])
+    plt.title('model accuracy')
+    plt.ylabel('accuracy')
+    plt.xlabel('epoch')
+    plt.legend(['train', 'val'], loc='upper left')
+    # save plot to file
+    plt.savefig('accuracy.png')
+    plt.clf()
+
+    # plot training history-loss
+    plt.plot(history.history['loss'])
+    plt.plot(history.history['val_loss'])
+    plt.title('model loss')
+    plt.ylabel('loss')
+    plt.xlabel('epoch')
+    plt.legend(['train', 'val'], loc='upper left')
+    # save plot to file
+    plt.savefig('loss.png')
+    # save model in saved_model format
     model.save("saved_model")
 
 
