@@ -1,0 +1,29 @@
+-- Nel data parallelism un singolo modello viene replicato su device multipli o macchine multiple. Ognuna di esse processa un batch di dati differente e poi fanno un merge dei propri risultati. Ci sono diverse varianti per esempio se le macchine rimangono in sync dopo ogni batch o rimangono loosely coupled.
+
+-- Nel model parallelism parto differenti di un singolo modello runnano su device diversi, processando una singola batch di dati insieme. Funziona meglio con modelli che hanno più branch.
+
+
+-- In Keras sync data parallelism: usando le API di tf.distribute per l'allenamento.
+
+1) Su gpu multiple nella stessa machina -> single host multi device training
+
+2) Su un cluster di macchine, ognuna con una o più gpu (la documentazione di keras si riferisce quasi solo a gpu ma è possibile usare la cpu andando a dichiarare a livello di codice il numero di gpu = -1)
+
+Per entrambe le tecniche ci sono alcuni punti chiave in comune per quanto riguarda l'allenamento (poi l'implementazione è un altro paio di maniche):
+
+    - La batch di dati corrente (global batch) viene divisa in batch diverse in base al numero di repliche (local batches). EX: batch da 512 elementi con 6 repliche -> 64 elementi per batch locale.
+
+    - Ognuna delle repliche processa la pripria batch locale facendo un forward pass, backward pass e dando in output il gradiente dei pesi con attenzione al loss del model nella local batch.
+
+    - Gli aggiornamenti di peso sono poi mergiati su tutte le repliche, essendo che ciò avviene alla fine di ogni step (sottoinsieme di un epoca) le repliche rimangono in sync.
+
+In pratica il processo di update sincrono dei pesi della replica è gestito a livello di ogni variabile peso usando un oggetto chiamato mirrored variable. Dunque come da ipotesi durante il training ad ogni step vengono confrontate e scelte le variabili peso "migliori" e poi propagate a tutte le repliche. In questo modo a fine allenamento ottengo un solo modello compilato che è l'unione dei parametri migliori. Per quanto riguarda la fase di "utilizzo" vero e proprio di questo modello le repliche per l'allenamento sono riutilizzabili però di fatto è come se avessi una sola rete visto che sono tutte uguali.
+
+Per quanto riguarda l'approccio cluster se si usano container su pc diversi, dunque di base macchine diverse dall'host, è molto facile (essendo documentato cosi sembra almeno):
+    - Si settuppa un cluster usando delle variabili d'ambiente (TF_CONFIG) su ognuno dei worker in modo da indicargli il suo ruolo e come communicare con i suoi simili. 
+    - Su ognuno dei worker si crea e si compila il modello in base allo scope datto da un oggetto MultiWorkerMirroredStrategy (indica la strategia per il mirroring delle variabili, come per il single host descrive anche la divsione delle batch and co).
+
+La prima prova è di provare a rendere dei container in locale "macchine diverse" per il training distribuito. Per test pensavo a 2-3 container tutti con la stessa immagine. 
+
+
+
