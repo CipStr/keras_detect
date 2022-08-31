@@ -26,4 +26,9 @@ Per quanto riguarda l'approccio cluster se si usano container su pc diversi, dun
 La prima prova è di provare a rendere dei container in locale "macchine diverse" per il training distribuito. Per test pensavo a 2-3 container tutti con la stessa immagine. 
 
 
+TEST HOST-WORKER SYNC DATA: SUCCESSO
+Usando due container (host e worker) sono risucito a farli communicare (con porte esposte nel dockerfile e network_mode:host in docker-compose) ed eseguire due epoche in modo sincrono. I due container sono quasi identici: l'unica differenza è l'index in TF_CONFIG (0 per host, 1 per worker).
+(Nuova speranza per Mesh Tensorflow?)
+
+TODO: Integrare la rete main (cats&dogs) e fare prove per sync/async data e model parallelism...e dare una nuova chance a Mesh Tensorflow.
 
