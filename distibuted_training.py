@@ -65,3 +65,6 @@ with strategy.scope():
 # Train the model on all available devices.
 train_dataset, val_dataset, test_dataset = get_dataset()
 model.fit(train_dataset, epochs=2, validation_data=val_dataset)
+# on end of training, print "Training complete"
+print("Training complete")
+
