@@ -4,12 +4,19 @@ import tensorflow as tf
 from tensorflow import keras
 from keras import layers
 from matplotlib import pyplot as plt
+import json
 
 
 # Function that makes a keras model
 # We start the model with the data_augmentation preprocessor, followed by a Rescaling layer.
 # The Rescaling layer rescales the input image to have values between 0 and 1.
 # We include a Dropout layer before the final classification layer.
+os.environ['TF_CONFIG'] = json.dumps({
+    'cluster': {
+        'worker': ["localhost:12345", "localhost:23456"]
+    },
+    'task': {'type': 'worker', 'index': 0}
+})
 def make_model(input_shape, num_classes, data_augmentation):
     inputs = keras.Input(shape=input_shape)
     # Image augmentation block
@@ -99,26 +106,32 @@ def main():
     # configure dataset for performance
     train_ds = train_ds.prefetch(buffer_size=32)
     val_ds = val_ds.prefetch(buffer_size=32)
+    strategy = tf.distribute.MultiWorkerMirroredStrategy()
+    print("Number of devices: {}".format(strategy.num_replicas_in_sync))
 
-    model = make_model(input_shape=image_size + (3,), num_classes=2, data_augmentation=data_augmentation)
-    keras.utils.plot_model(model, show_shapes=True)
-    # get model summary
-    model.summary()
-    # run training
-    epochs = 5
-
-    callbacks = [
+    #open a strategy scope
+    with strategy.scope():
+        model = make_model(input_shape=image_size + (3,), num_classes=2, data_augmentation=data_augmentation)
+        keras.utils.plot_model(model, show_shapes=True)
+        # get model summary
+        model.summary()
+        # run training
+        epochs = 2
+        # callbacks
+        callbacks = [
         keras.callbacks.ModelCheckpoint("save_at_{epoch}.h5"),
-    ]
-    model.compile(
+        ]
+        model.compile(
         optimizer=keras.optimizers.Adam(1e-3),
         loss="binary_crossentropy",
         metrics=["acc"],
-    )
+        )
     history = model.fit(
         train_ds, validation_split=0.1, epochs=epochs, callbacks=callbacks, validation_data=val_ds,
     )
 
+    # print training finised
+    print("Training finished")
     # plot training history-accuracy
     plt.plot(history.history['acc'])
     plt.plot(history.history['val_acc'])
