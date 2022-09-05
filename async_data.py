@@ -13,8 +13,8 @@ import json
 # We include a Dropout layer before the final classification layer.
 os.environ['TF_CONFIG'] = json.dumps({
     'cluster': {
-        'worker': ["localhost:12345", "localhost:23456"]
-        'ps': ["localhost:12346"]
+        'worker': ["localhost:12345", "localhost:23456"],
+        'ps': ["localhost:12346"],
         'chief':["localhost:12347"]
     },
     'task': {'type': 'worker', 'index': 0}
@@ -126,34 +126,31 @@ if cluster_resolver.task_type in ("worker", "ps"):
         start=True)
     server.join()
 else:
-    # Run the coordinator.
+    strategy = tf.distribute.experimental.ParameterServerStrategy(cluster_resolver)
+    print("Number of devices: {}".format(strategy.num_replicas_in_sync))
 
-
-strategy = tf.distribute.MultiWorkerMirroredStrategy()
-print("Number of devices: {}".format(strategy.num_replicas_in_sync))
-
-# create dataset
-train_ds, val_ds, data_augmentation, image_size = create_dataset()
-#open a strategy scope
-with strategy.scope():
-    model = make_model(input_shape=image_size + (3,), num_classes=2, data_augmentation=data_augmentation)
-    # keras.utils.plot_model(model, show_shapes=True)
-    # get model summary
-    model.summary()
-    # run training
-    epochs = 2
-    # callbacks
-    callbacks = [
-    keras.callbacks.ModelCheckpoint("save_at_{epoch}.h5"),
-    ]
-    model.compile(
-        optimizer=keras.optimizers.Adam(1e-3),
-        loss="binary_crossentropy",
-        metrics=["acc"],
-    )
-history = model.fit(
-    train_ds, validation_split=0.1, epochs=epochs, callbacks=callbacks, validation_data=val_ds,
-)
+    # create dataset
+    train_ds, val_ds, data_augmentation, image_size = create_dataset()
+    # open a strategy scope
+    with strategy.scope():
+        model = make_model(input_shape=image_size + (3,), num_classes=2, data_augmentation=data_augmentation)
+        # keras.utils.plot_model(model, show_shapes=True)
+        # get model summary
+        model.summary()
+        # run training
+        epochs = 2
+        # callbacks
+        callbacks = [
+            keras.callbacks.ModelCheckpoint("save_at_{epoch}.h5"),
+        ]
+        model.compile(
+            optimizer=keras.optimizers.Adam(1e-3),
+            loss="binary_crossentropy",
+            metrics=["acc"],
+        )
+        history = model.fit(
+            train_ds, validation_split=0.1, epochs=epochs, callbacks=callbacks, validation_data=val_ds,
+        )
 
 # print training finised
 print("Training finished for host-worker")
