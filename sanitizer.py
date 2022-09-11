@@ -1,25 +1,23 @@
 import os
 import tensorflow as tf
 
-def main():
-    num_skipped = 0
-    for folder_name in ("Cat", "Dog"):
-        folder_path = os.path.join("PetImages", folder_name)
-        for fname in os.listdir(folder_path):
-            fpath = os.path.join(folder_path, fname)
-            try:
-                fobj = open(fpath, "rb")
-                is_jfif = tf.compat.as_bytes("JFIF") in fobj.peek(10)
-            finally:
-                fobj.close()
+# disable GPU
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
-            if not is_jfif:
-                num_skipped += 1
-                # Delete corrupted image
-                os.remove(fpath)
+num_skipped = 0
+for folder_name in ("Cat", "Dog"):
+    folder_path = os.path.join("PetImages", folder_name)
+    for fname in os.listdir(folder_path):
+        fpath = os.path.join(folder_path, fname)
+        try:
+            fobj = open(fpath, "rb")
+            is_jfif = tf.compat.as_bytes("JFIF") in fobj.peek(10)
+        finally:
+            fobj.close()
 
-    print("Deleted %d images" % num_skipped)
+        if not is_jfif:
+            num_skipped += 1
+            # Delete corrupted image
+            os.remove(fpath)
 
-if __name__ == "__main__":
-    main()
-
+print("Deleted %d images" % num_skipped)

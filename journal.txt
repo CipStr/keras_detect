@@ -45,3 +45,16 @@ La comunicazione di tutti gli agenti (more like contianers here) avviene attrave
 
 TODO: capire divisione delle batch da parte di chief e se i worker una volta che non mandano i propri pesi al ps perchè ritenuti peggiori rispetto a quelli già presenti se prendono i pesi dal ps per avere una nuova base di partenza migliore. 
 
+UPDATE: Alla fine l'erroe era vero e importante. La risoluzione è stata fare repeat(n epoche) dei dataset di training e valutazione prima del prefetch(). Il problema era dovuto al fatto che i worker partivano corettamente ma una volta esaurito il numero di dati nelle batch durante la prima epoca mandavano degli errori di OutOfRange per il graph e diventavano "hanged" cioè sospesi. Con i worker sospesi anche i parameter server diventavano hanged in quantonon ricevevano più dati, ergo una cascata di errori. Risolto il 07/09 alle 2 del mattino.
+Per quanto riguarda la divisione delle batch se ne occupa il chief ma ci possono essere batch "simili" cioè con elementi in comune. Per questo è consigliato fare una shuffle e repeat delle batch nei worker. Per quanto riguarda la questione pesi i worker inviano i propri pesi ma ne prendono anche dal parameter server. É asincrono si ma il concetto di "stessa base" è applicabile anche qua.
+
+TODO: Model // --> Mesh Tensorflow?
+
+UPDATE: Model e mesh tensorflow
+A causa di problemi tecnici (non so come usare mesh tensorflow) non sono riuscito a rendere questa parte nel pratico. Mi sembra di capire che questa libreria non usa i tensor ma bensi le mesh per poter realizzare il model parallelism:
+- Tensor: sono array multi dimensionali con un tipo uniforme (dtype). Molto molto simili agli array di numpy. Sono immutabili.
+- Mesh: è un array multi dimensionale di processori connessi da una rete. Ogni tensore è distribuito (diviso o replicato) in tutti i processori della mesh. 
+
+Di base non si può "dividere" il modello facilemente con Tensorflow, di fatto non vi esistono strategie già costruite come per il data parallelism. Il problema nel creare un problema "custom" divisible sta nella atomicità dei passaggi: di fatto non ha senso allenare solo una parte di modello alla volta. L'output di un'operazione su un tensore è fondamentale in quanto è l'input per la successiva. È una pipeline. Con mesh un utente esperto può specificare qualisasi dimensione del tensore da dividere in tutte le dimensioni della mesh. Semplifica il tutto in quanto provare ad assegnare operazioni differenti a device differenti riuslta in un grafo sconnesso, mesh si occupa proprio di mantenere un grafo connesso con una struttura logica ben definita.
+Più nel preciso Mesh Tensorflow adotta un approccio ispirato al data-parallelism sincrono in quanto tutti i processori (o device) sono coinvolti nelle operazioni. Come per gli esempi in Tensorflow si tratta di un SPMD (Single Program Multiple Devices). Mesh si occupa anche della communicazione dei vari processori.
+

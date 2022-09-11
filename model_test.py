@@ -5,13 +5,13 @@ from tensorflow import keras
 # disable GPU
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 # take random image from PetImages/Cat/ folder
-img = tf.keras.preprocessing.image.load_img("PetImages/Cat/1.jpg", target_size=(180, 180))
+img = tf.keras.preprocessing.image.load_img("PetImages/Cat/27.jpg", target_size=(180, 180))
 # convert to numpy array
 img_array = tf.keras.preprocessing.image.img_to_array(img)
 # add a dimension to the array
 img_array = tf.expand_dims(img_array, 0)
 # load model
-model = keras.models.load_model("saved_model")
+model = keras.models.load_model("async_model")
 # predict
 predictions = model.predict(img_array)
 # print result
