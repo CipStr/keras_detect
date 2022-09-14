@@ -1,0 +1,9 @@
+version: "3.9"
+services:
+  host_worker:
+    image: keras-host:cats
+    network_mode: "host"
+  worker:
+    image: keras-worker:cats
+    network_mode: "host"
+
