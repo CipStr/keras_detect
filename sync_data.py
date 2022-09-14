@@ -112,13 +112,18 @@ def create_dataset():
 strategy = tf.distribute.MultiWorkerMirroredStrategy()
 print("Number of devices: {}".format(strategy.num_replicas_in_sync))
 
+#create distributed dataset
+
 # create dataset
 train_ds, val_ds, data_augmentation, image_size = create_dataset()
+distributed_train_ds = strategy.experimental_distribute_dataset(train_ds)
 #open a strategy scope
 with strategy.scope():
     model = make_model(input_shape=image_size + (3,), num_classes=2, data_augmentation=data_augmentation)
     # keras.utils.plot_model(model, show_shapes=True)
     # get model summary
+    epochs = 2
+    steps_per_epoch = 20
     model.summary()
     # callbacks
     callbacks = [
@@ -129,9 +134,8 @@ with strategy.scope():
         loss="binary_crossentropy",
         metrics=["acc"],
     )
-epochs = 2
 history = model.fit(
-    train_ds, validation_split=0.1, epochs=epochs, callbacks=callbacks, validation_data=val_ds,
+    distributed_train_ds, validation_split=0.1, epochs=epochs, steps_per_epoch=steps_per_epoch, callbacks=callbacks, validation_data=val_ds,
 )
 
 # print training finised
