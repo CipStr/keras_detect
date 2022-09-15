@@ -1,0 +1,18 @@
+version: "3.9"
+services:
+  chief:
+    image: keras-async:chief
+    network_mode: "host"
+  ps_0:
+    image: keras-async:ps
+    network_mode: "host"
+  ps_1:
+    image: keras-async:ps-1
+    network_mode: "host"
+  worker_0:
+    image: keras-async:worker-0
+    network_mode: "host"
+  worker_1:
+    image: keras-async:worker-1
+    network_mode: "host"
+
