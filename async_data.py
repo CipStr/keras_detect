@@ -4,7 +4,7 @@ import time
 import tensorflow as tf
 from tensorflow import keras
 from keras import layers
-# from matplotlib import pyplot as plt
+from matplotlib import pyplot as plt
 import json
 
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
@@ -15,30 +15,23 @@ os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 os.environ['TF_CONFIG'] = json.dumps({
     'cluster': {
         'worker': ["localhost:12345", "localhost:23456"],
-        'ps': ["localhost:12346", "localhost:12348"],
-        'chief': ["localhost:12347"]
+        'ps': ["localhost:12346","localhost:12348"],
+        'chief':["localhost:12347"]
     },
     'task': {'type': 'chief', 'index': 0}
 })
 
-# augment dataset
-data_augmentation = keras.Sequential(
-     [
-        layers.RandomFlip("horizontal"),
-        layers.RandomRotation(0.1),
-    ]
-)
-def make_model(input_shape, num_classes):
+def make_model(input_shape, num_classes, data_augmentation):
     inputs = keras.Input(shape=input_shape)
     # Image augmentation block
     x = data_augmentation(inputs)
     # Entry block
     x = layers.Rescaling(1.0 / 255)(x)
-    x = layers.Conv2D(16, 3, strides=2, padding="same")(x)
+    x = layers.Conv2D(32, 3, strides=2, padding="same")(x)
     x = layers.BatchNormalization()(x)
     x = layers.Activation("relu")(x)
 
-    x = layers.Conv2D(32, 3, padding="same")(x)
+    x = layers.Conv2D(64, 3, padding="same")(x)
     x = layers.BatchNormalization()(x)
     x = layers.Activation("relu")(x)
 
@@ -62,7 +55,7 @@ def make_model(input_shape, num_classes):
         x = layers.add([x, residual])  # Add back residual
         previous_block_activation = x  # Set aside next residual
 
-    x = layers.SeparableConv2D(512, 3, padding="same")(x)
+    x = layers.SeparableConv2D(1024, 3, padding="same")(x)
     x = layers.BatchNormalization()(x)
     x = layers.Activation("relu")(x)
 
@@ -82,7 +75,7 @@ def make_model(input_shape, num_classes):
 def create_dataset():
     # generate dataset
     image_size = (180, 180)
-    batch_size = 2
+    batch_size = 8
     train_ds = tf.keras.preprocessing.image_dataset_from_directory(
         "PetImages",
         validation_split=0.2,
@@ -101,23 +94,22 @@ def create_dataset():
     )
     # print number of images in each dataset
     print("Number of training images before augmentation: " + str(len(train_ds)))
-    # print type of train_ds
-    print("Type of train_ds: " + str(type(train_ds)))
 
-    # convert train_ds from BatchDataset to Dataset
-    train_ds = train_ds.unbatch()
-    # print type of train_ds
-    print("Type of train_ds: " + str(type(train_ds)))
-
-
+    # augment dataset
+    data_augmentation = keras.Sequential(
+        [
+            layers.RandomFlip("horizontal"),
+            layers.RandomRotation(0.1),
+        ]
+    )
     # is train_ds an iterator?
     print("Is train_ds an iterator? " + str(isinstance(train_ds, tf.compat.v1.data.Iterator)))
     # is train_ds an iterable?
     print("Is train_ds an iterable? " + str(isinstance(train_ds, tf.compat.v1.data.Iterator)))
 
-    train_ds = train_ds.prefetch(buffer_size=2)
-    val_ds = val_ds.prefetch(buffer_size=2)
-    return train_ds, val_ds, image_size
+    train_ds = train_ds.shuffle(4).repeat().prefetch(buffer_size=8)
+    val_ds = val_ds.repeat().prefetch(buffer_size=8)
+    return train_ds, val_ds, data_augmentation, image_size
 
 
 # resolve cluster
@@ -142,15 +134,18 @@ if cluster_resolver.task_type in ("worker", "ps"):
     server.join()
 else:
     strategy = tf.distribute.experimental.ParameterServerStrategy(cluster_resolver)
-    train_ds, val_ds, image_size = create_dataset()
+    train_ds, val_ds, data_augmentation, image_size = create_dataset()
 
     # create dataset
     # train_ds, val_ds, data_augmentation, image_size = create_dataset()
     # open a strategy scope
     with strategy.scope():
-        model = make_model(input_shape=image_size + (3,), num_classes=2)
+        model = make_model(input_shape=image_size + (3,), num_classes=2, data_augmentation=data_augmentation)
         # keras.utils.plot_model(model, show_shapes=True)
         # get model summary
+        epochs = 20
+        steps_per_epoch = 20
+        validation_steps = 20
         model.summary()
         # run training
         # callbacks
@@ -164,12 +159,30 @@ else:
         )
         # get compile status
         print("Compile status: " + str(model.optimizer))
-
-    epochs = 2
-    steps_per_epoch = 4
     history = model.fit(
-        train_ds, epochs=epochs, steps_per_epoch=steps_per_epoch, callbacks=callbacks, validation_data=val_ds,
+        train_ds, epochs=epochs, steps_per_epoch=steps_per_epoch, callbacks=callbacks, validation_data=val_ds, validation_steps=validation_steps,
     )
 
-    # print history
-    print(history.history)
+    plt.plot(history.history['acc'])
+    #plt.plot(history.history['val_acc'])
+    plt.title('model accuracy')
+    plt.ylabel('accuracy')
+    plt.xlabel('epoch')
+    plt.legend(['train'], loc='upper left')
+    # save plot to file
+    plt.savefig('accuracy.png')
+    plt.clf()
+
+    # plot training history-loss
+    plt.plot(history.history['loss'])
+    #plt.plot(history.history['val_loss'])
+    plt.title('model loss')
+    plt.ylabel('loss')
+    plt.xlabel('epoch')
+    plt.legend(['train'], loc='upper left')
+    # save plot to file
+    plt.savefig('loss.png')
+    # save model in saved_model format
+    model.save("async_model")
+
+
