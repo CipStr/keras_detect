@@ -1,0 +1,15 @@
+version: "3.9"
+services:
+  chief:
+    image: keras-async:mnist-chief
+    network_mode: "host"
+  ps_0:
+    image: keras-async:mnist-ps
+    network_mode: "host"
+  worker_0:
+    image: keras-async:mnist-worker-0
+    network_mode: "host"
+  worker_1:
+    image: keras-async:mnist-worker-1
+    network_mode: "host"
+

@@ -1,0 +1,9 @@
+version: "3.9"
+services:
+  host_worker:
+    image: keras-host:mnist
+    network_mode: "host"
+  worker:
+    image: keras-worker:mnist
+    network_mode: "host"
+
